@@ -1,0 +1,16 @@
+{
+    "meta-version" : "1",
+    "perl"         : "6.c",
+    "name"         : "Geo::Coordinates::LCC",
+    "version"      : "0.0.1",
+    "description"  : "Convert latitude and longitude to Lambert's Conformal Conic projection and vice versa",
+    "authors"      : [
+                       "Kevin Pye (kjpye@cpan.org)",
+                     ],
+    "depends"      : [],
+    "provides"     : {
+                       "Geo::Coordinates::LCC" : "lib/Geo/Coordinates/LCC.pm"
+                     },
+    "license"      : "Artistic-2.0",
+    "source-url"   : "https://github.com/kjpye/P6-Geo-Coordinates-LCC"
+}
