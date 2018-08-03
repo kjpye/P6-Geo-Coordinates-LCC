@@ -196,13 +196,13 @@ module Geo::Coordinates::LCC {
     my ($name, $radius, $eccentricity) = |ellipsoid-info $ellips
       or fail "Ellipsoid value ($ellips) invalid.";
     my \n   = ???;
-    my \ρ   = sign n × (x × x + (ρ0 - y)**2) ** 0.5;
+    my \ρ   = sign n × (x² + (ρ0 - y)²) ** 0.5;
     my \t   = (ρ / (a * F)) ** (1/n);
     my \χ   = π/2 - 2 × arctan t;
-    my \φ   = χ + (e×e/2 + 5 × e**4 /  24 +      e**6 /  12 +  13 × e**8 /    360) × sin(2 × χ)
-                + (        7 × e**4 /  48 + 29 × e**6 / 240 + 811 × e**8 / 115200) × sin(4 × χ)
-                + (                          7 × e**6 / 120 +  81 × e**8 /   1120) × sin(6 × χ)
-                + (                                          4279 × e**8 / 161280) × sin(8 × χ);
+    my \φ   = χ + (e²/2 + 5 × e⁴ /  24 +      e⁶ /  12 +  13 × e⁸ /    360) × sin(2 × χ)
+                + (       7 × e⁴ /  48 + 29 × e⁶ / 240 + 811 × e⁸ / 115200) × sin(4 × χ)
+                + (                       7 × e⁶ / 120 +  81 × e⁸ /   1120) × sin(6 × χ)
+                + (                                     4279 × e⁸ / 161280) × sin(8 × χ);
   }
 
 } # end module
