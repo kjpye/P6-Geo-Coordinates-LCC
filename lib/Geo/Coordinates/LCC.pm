@@ -4,8 +4,8 @@ use v6;
 
 module Geo::Coordinates::LCC {
 
-   constant \deg2rad =  pi / 180;
-   constant \rad2deg = 180 /  pi;
+   constant \deg2rad =   π / 180;
+   constant \rad2deg = 180 /   π;
    
    # remove all markup from an ellipsoid name, to increase the chance
    # that a match is found.
@@ -23,14 +23,12 @@ module Geo::Coordinates::LCC {
     has $.name;
     has $.radius;
     has $.eccentricity;
-    has $.eccent-prime;
 
     method create($name, $radius, $eccentricity) {
       Ellipsoid.new(name => $name, radius => $radius.Num, eccentricity => $eccentricity.Num);
     }
 
     submethod TWEAK() {
-      $!eccent-prime = 0; # TODO;
     }
   }
 
@@ -109,7 +107,6 @@ module Geo::Coordinates::LCC {
   my $name;
   my $eccentricity;
   my $radius;
-  my $eccent-prime;
   my ($k1, $k2, $k3, $k4);
 
   proto sub set-ellipse(|) is export { * }
@@ -117,20 +114,18 @@ module Geo::Coordinates::LCC {
   multi sub set-ellipse(Str $name) {
     my $el = ellipsoid-info($name);
     fail "Unknown ellipsoid $name" unless $el.defined;
-    $eccentricity = $el<eccentricity>;
-    $radius       = $el<radius>;
-    $eccent-prime = 0; # TODO
+    $eccentricity = $el.eccentricity;
+    $radius       = $el.radius;
   }
 
   multi sub set-ellipse($new-radius, $new-eccentricity) {
     $radius = $new-radius;
     $eccentricity = $new-eccentricity;
-    $eccent-prime = 0; # TODO
   }
 
   set-ellipse 'WGS-84'; # As good a default as any
 
-  proto sub set-projection() is export { * }
+  proto sub set-projection(|) is export { * }
 
   multi sub set-projection(Str $name) is export {
   }
@@ -140,13 +135,17 @@ module Geo::Coordinates::LCC {
   my $φ2;
   my $φ0;
   my $λ0;
+  my $false-easting;
+  my $false-northing;
 
-  multi sub set-projection($new-R, $new-φ1, $new-φ2, $new-φ0, $new-λ0) is export {
-    $R  = $new-R;
-    $φ1 = $new-φ1;
-    $φ2 = $new-φ2;
-    $φ0 = $new-φ0;
-    $λ0 = $new-λ0;
+  multi sub set-projection($new-R, $new-φ1, $new-φ2, $new-φ0, $new-λ0, $new-false-easting, $new-false-northing) is export {
+    $R              = $new-R;
+    $φ1             = $new-φ1 * deg2rad;
+    $φ2             = $new-φ2 * deg2rad;
+    $φ0             = $new-φ0 * deg2rad;
+    $λ0             = $new-λ0 * deg2rad;
+    $false-easting  = $new-false-easting;
+    $false-northing = $new-false-northing;
   }
 
   sub prefix:<ln>($a) { log $a; }
@@ -155,56 +154,87 @@ module Geo::Coordinates::LCC {
    # (Latitude and Longitude in decimal degrees)
    # Returns LCC Zone, LCC Easting, LCC Northing
 
-   sub latlon-to-lcc(Str $ellips, Real $φ, Real $λ) is export {
+   sub latlon-to-lcc(Real $φ, Real $λ) is export {
        fail "Longitude value ($λ) invalid."
            unless -180 <= $λ <= 180;
        fail "Latitude value ($φ) invalid."
            unless -90 <= $φ <= 90;
      my \a  := $radius;
      my \e  := $eccentricity;
-     my \λ  := $λ;
+     my \λ   = $λ * deg2rad;
      my \λ0 := $λ0;
-     my \φ  := $φ;
+     my \φ   = $φ * deg2rad;
      my \φ0 := $φ0;
      my \φ1 := $φ1;
      my \φ2 := $φ2;
 
-     my \t  = tan (π/4 - φ /2)/((1 - e × sin φ )/(1 + e × sin φ )) ** ( e / 2);
-     my \t0 = tan (π/4 - φ0/2)/((1 - e × sin φ0)/(1 + e × sin φ0)) ** ( e / 2);
-     my \t1 = tan (π/4 - φ1/2)/((1 - e × sin φ1)/(1 + e × sin φ1)) ** ( e / 2);
-     my \t2 = tan (π/4 - φ2/2)/((1 - e × sin φ2)/(1 + e × sin φ2)) ** ( e / 2);
+     my \t  = tan(π/4 - φ /2)/((1 - e × sin φ )/(1 + e × sin φ )) ** ( e / 2);
+     my \t0 = tan(π/4 - φ0/2)/((1 - e × sin φ0)/(1 + e × sin φ0)) ** ( e / 2);
+     my \t1 = tan(π/4 - φ1/2)/((1 - e × sin φ1)/(1 + e × sin φ1)) ** ( e / 2);
+     my \t2 = tan(π/4 - φ2/2)/((1 - e × sin φ2)/(1 + e × sin φ2)) ** ( e / 2);
 
-     my \m  = cos φ /(1 - e×e × (sin φ ) ** 2) ** 0.5;
-     my \m1 = cos φ1/(1 - e×e × (sin φ1) ** 2) ** 0.5;
-     my \m2 = cos φ2/(1 - e×e × (sin φ2) ** 2) ** 0.5;
+     my \m  = cos(φ)/sqrt(1 - e×e × (sin φ ) ** 2);
+     my \m1 = cos(φ1)/sqrt(1 - (e × (sin φ1)) ** 2);
+     my \m2 = cos(φ2)/(1 - e×e × (sin φ2) ** 2) ** 0.5;
 
      my \n  = (ln m1 - ln m2)/(ln t1 - ln t2);
      my \F  = m1 / ( n × t1 ** n);
      my \ρ0 = a × F × t0 ** n;
-     my \θ  = n / (λ - λ0);
+     my \θ  = n × (λ - λ0);
      my \ρ  = a × F × t ** n;
      my \k  = m1 × t ** n / (m × t1 ** n);
-     my \y  = ρ0 - ρ × θ;
-     my \x  = ρ × θ;
+     my \x  = ρ × sin θ;
+     my \y  = ρ0 - ρ × cos θ;
+     (x + $false-easting, y + $false-northing);
    }
 
   # Expects Ellipsoid Number or name, LCC zone, LCC Easting, LCC Northing
   # Returns Latitude, Longitude
   # (Latitude and Longitude in decimal degrees, LCC Zone e.g. 23S)
 
-  sub lcc-to-latlon(Str $ellips, Real $x, Real $y) is export {
-    my ($name, $radius, $eccentricity) = |ellipsoid-info $ellips
-      or fail "Ellipsoid value ($ellips) invalid.";
-    my \n   = ???;
-    my \ρ   = sign n × (x² + (ρ0 - y)²) ** 0.5;
-    my \t   = (ρ / (a * F)) ** (1/n);
-    my \χ   = π/2 - 2 × arctan t;
-    my \φ   = χ + (e²/2 + 5 × e⁴ /  24 +      e⁶ /  12 +  13 × e⁸ /    360) × sin(2 × χ)
-                + (       7 × e⁴ /  48 + 29 × e⁶ / 240 + 811 × e⁸ / 115200) × sin(4 × χ)
-                + (                       7 × e⁶ / 120 +  81 × e⁸ /   1120) × sin(6 × χ)
-                + (                                     4279 × e⁸ / 161280) × sin(8 × χ);
+  sub lcc-to-latlon(Real $x, Real $y) is export {
+#    my ($name, $radius, $eccentricity) = |ellipsoid-info $ellips
+#      or fail "Ellipsoid value ($ellips) invalid.";
+    my \e  := $eccentricity;
+    my \x  := $x;
+    my \y  := $y;
+    my \a  := $radius;
+    my \λ0 := $λ0;
+    my \φ0 := $φ0;
+    my \φ1 := $φ1;
+    my \φ2 := $φ2;
+
+    my \m1 = cos(φ1)/sqrt(1 - e×e × (sin φ1)²);
+    my \m2 = cos(φ2)/sqrt(1 - e×e × (sin φ2)²);
+    my \t0 = tan(π/4 - φ0/2)/((1 - e × sin φ0)/(1 + e × sin φ0)) ** ( e / 2);
+    my \t1 = tan(π/4 - φ1/2)/((1 - e × sin φ1)/(1 + e × sin φ1)) ** ( e / 2);
+    my \t2 = tan(π/4 - φ2/2)/((1 - e × sin φ2)/(1 + e × sin φ2)) ** ( e / 2);
+    my \n  = (ln m1 - ln m2)/(ln t1 - ln t2);
+    my \F  = m1 / ( n × t1 ** n);
+    my \ρ0 = a × F × t0 ** n;
+    my \ρ  = sign(n) × sqrt(x² + (ρ0 - y)**2);
+    my \t  = (ρ / (a * F)) ** (1/n);
+    my \χ  = π/2 - 2 × atan t;
+say 'χ  ', χ;
+    my \φ  = χ + (e²/2 + 5 × e**4 /  24 +      e**6 /  12 +  13 × e**8 /    360) × sin(2 × χ)
+               + (       7 × e**4 /  48 + 29 × e**6 / 240 + 811 × e**8 / 115200) × sin(4 × χ)
+               + (                         7 × e**6 / 120 +  81 × e**8 /   1120) × sin(6 × χ)
+               + (                                         4279 × e**8 / 161280) × sin(8 × χ);
+
+    my \θ  = atan(x/(ρ0 - y));
+    my \λ  = θ/n + λ0;
+    (φ, λ);
   }
 
+set-ellipse(6378206.4, sqrt(0.00676866));
+set-projection(6378206.4, 33, 45, 23, -96, 0, 0);
+my ($x, $y) = |latlon-to-lcc(-35, -75);
+dd latlon-to-lcc(35.0, -75.0);
+
+#set-ellipse('WGS-84');
+#set-projection(0, -38, -36, -37, 145, 2500000, 2500000);
+my ($long, $lat) = lcc-to-latlon($x, $y);
+say $long*rad2deg, ' ', $lat*rad2deg;
 } # end module
 
 =begin pod
