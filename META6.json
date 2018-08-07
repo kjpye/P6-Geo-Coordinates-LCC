@@ -9,8 +9,8 @@
                      ],
     "depends"      : [],
     "provides"     : {
-                       "Geo::Coordinates::LCC" : "lib/Geo/Coordinates/LCC.pm"
+                       "Geo::Coordinates::LCC" : "lib/Geo/Coordinates/LCC.pm",
                      },
     "license"      : "Artistic-2.0",
-    "source-url"   : "https://github.com/kjpye/P6-Geo-Coordinates-LCC"
+    "source-url"   : "https://github.com/kjpye/P6-Geo-Coordinates-LCC",
 }

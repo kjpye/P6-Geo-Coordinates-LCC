@@ -31,8 +31,24 @@ module Geo::Coordinates::LCC {
     submethod TWEAK() {
     }
   }
+  class Projection {
+    has $.name;
+    has $.lat1;
+    has $.lat2;
+    has $.lat0;
+    has $.long0;
+    has $.false-easting;
+    has $.false-northing;
 
-  my (@Ellipsoid, %Ellipsoid);
+    method create($name, $lat1, $lat2, $lat0, $long0, $false-easting, $false-northing) {
+      Projection.new(:$name, :$lat1, :$lat2, :$lat0, :$long0, :$false-easting, :$false-northing);
+    }
+  }
+
+  my @Ellipsoid;
+  my %Ellipsoid;
+  my @Projection;
+  my %Projection;
    
   BEGIN {  # Initialize this before other modules get a chance
     @Ellipsoid = (
@@ -83,6 +99,16 @@ module Geo::Coordinates::LCC {
         %Ellipsoid{$el.name} = $el;
         %Ellipsoid{cleanup-name $el.name} = $el;
     }
+
+    # $name, $lat1, $lat2, $lat0, $long0, $false-easting, $false-northing
+    @Projection = (
+                    Projection.create('vicgrid94', 36, 38, 37, 145, 2500000, 2500000),
+                  );
+    for @Projection -> $pr {
+        %Projection{$pr.name} = $pr;
+        %Projection{cleanup-name $pr.name} = $pr;
+    }
+
   }
 
   # Returns all pre-defined ellipsoid names, sorted alphabetically
@@ -100,6 +126,23 @@ module Geo::Coordinates::LCC {
   #             my($name, $r, $sqecc) = ellipsoid-info 22;
 
   sub ellipsoid-info(Str $id) is export {
+     %Ellipsoid{$id} // %Ellipsoid{cleanup-name $id};
+  }
+
+  # Returns all pre-defined projection names, sorted alphabetically
+  sub projection-names() is export {
+      @Projection ==> map { .name };
+  }
+
+  # Returns "official" name, ...
+#FIX
+  # Examples:   my($name, $r, $sqecc) = projection-info 'wgs84';
+  #             my($name, $r, $sqecc) = projection-info 'WGS 84';
+  #             my($name, $r, $sqecc) = projection-info 'WGS-84';
+  #             my($name, $r, $sqecc) = projection-info 'WGS-84 (new specs)';
+  #             my($name, $r, $sqecc) = projection-info 22;
+
+  sub projection-info(Str $id) is export {
      %Ellipsoid{$id} // %Ellipsoid{cleanup-name $id};
   }
 
@@ -127,10 +170,6 @@ module Geo::Coordinates::LCC {
 
   proto sub set-projection(|) is export { * }
 
-  multi sub set-projection(Str $name) is export {
-  }
-
-  my $R;
   my $φ1;
   my $φ2;
   my $φ0;
@@ -138,8 +177,18 @@ module Geo::Coordinates::LCC {
   my $false-easting;
   my $false-northing;
 
-  multi sub set-projection($new-R, $new-φ1, $new-φ2, $new-φ0, $new-λ0, $new-false-easting, $new-false-northing) is export {
-    $R              = $new-R;
+  multi sub set-projection(Str $name) is export {
+    my $pr = projection-info($name);
+    fail "Unknown projection $name" unless $pr.defined;
+    $φ0 = $pr.lat0;
+    $φ1 = $pr.lat1;
+    $φ2 = $pr.lat2;
+    $λ0 = $pr.long0;
+    $false-easting = $pr.false-easting;
+    $false-northing = $pr.false-northing;
+  }
+
+  multi sub set-projection($new-φ1, $new-φ2, $new-φ0, $new-λ0, $new-false-easting, $new-false-northing) is export {
     $φ1             = $new-φ1 * deg2rad;
     $φ2             = $new-φ2 * deg2rad;
     $φ0             = $new-φ0 * deg2rad;
@@ -225,16 +274,6 @@ say 'χ  ', χ;
     my \λ  = θ/n + λ0;
     (φ, λ);
   }
-
-set-ellipse(6378206.4, sqrt(0.00676866));
-set-projection(6378206.4, 33, 45, 23, -96, 0, 0);
-my ($x, $y) = |latlon-to-lcc(-35, -75);
-dd latlon-to-lcc(35.0, -75.0);
-
-#set-ellipse('WGS-84');
-#set-projection(0, -38, -36, -37, 145, 2500000, 2500000);
-my ($long, $lat) = lcc-to-latlon($x, $y);
-say $long*rad2deg, ' ', $lat*rad2deg;
 } # end module
 
 =begin pod
